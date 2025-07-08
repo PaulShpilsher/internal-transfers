@@ -19,7 +19,20 @@ func RegisterRoutes(app *iris.Application, handler *AccountHandler) {
 		ctx.Next()
 	})
 
-	app.Post("/accounts", handler.CreateAccount)
+	// Middleware to restrict POST to application/json and limit body size to 4KB
+	jsonAndSizeLimit := func(ctx iris.Context) {
+		if ctx.Method() == iris.MethodPost {
+			if ctx.GetHeader("Content-Type") != "application/json" {
+				ctx.StatusCode(iris.StatusUnsupportedMediaType)
+				ctx.JSON(ErrorResponse{Error: "Content-Type must be application/json"})
+				return
+			}
+			ctx.SetMaxRequestBodySize(4096) // 4KB
+		}
+		ctx.Next()
+	}
+
+	app.Post("/accounts", jsonAndSizeLimit, handler.CreateAccount)
 	app.Get("/accounts/{id:uint64}", handler.GetAccount)
-	app.Post("/transactions", handler.SubmitTransaction)
+	app.Post("/transactions", jsonAndSizeLimit, handler.SubmitTransaction)
 }
