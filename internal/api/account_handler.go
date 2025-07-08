@@ -25,6 +25,7 @@ func NewAccountHandler(service services.AccountServicePort) *AccountHandler {
 	return &AccountHandler{service: service}
 }
 
+// CreateAccount handles the creation of a new account
 func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 	var req CreateAccountRequest
 	if err := ctx.ReadJSON(&req); err != nil {
@@ -71,6 +72,9 @@ func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 	ctx.StatusCode(iris.StatusCreated)
 }
 
+// GetAccount retrieves the account details by ID.
+// It expects the account ID to be provided in the URL as a path parameter.
+// Example: GET /accounts/{id}
 func (h *AccountHandler) GetAccount(ctx iris.Context) {
 	// get ID from URL
 	idStr := ctx.Params().Get("id")
@@ -106,6 +110,7 @@ func (h *AccountHandler) GetAccount(ctx iris.Context) {
 	}
 }
 
+// SubmitTransaction handles the transfer of funds between accounts.
 func (h *AccountHandler) SubmitTransaction(ctx iris.Context) {
 	var req CreateTransactionRequest
 	if err := ctx.ReadJSON(&req); err != nil {

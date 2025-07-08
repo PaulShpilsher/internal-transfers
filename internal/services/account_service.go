@@ -45,6 +45,7 @@ func validateDecimalPrecision(val decimal.Decimal) error {
 	return nil
 }
 
+// CreateAccount creates a new account with the specified ID and initial balance
 func (s *AccountService) CreateAccount(account model.Account) error {
 	if err := validateAccountID(account.AccountID); err != nil {
 		log.Printf("CreateAccount validation failed: %v", err)
@@ -73,6 +74,7 @@ func (s *AccountService) CreateAccount(account model.Account) error {
 	return nil
 }
 
+// GetAccount retrieves the account details by ID
 func (s *AccountService) GetAccount(id int64) (model.Account, error) {
 	if err := validateAccountID(id); err != nil {
 		log.Printf("GetAccount validation failed: %v", err)
@@ -94,6 +96,7 @@ func (s *AccountService) GetAccount(id int64) (model.Account, error) {
 	return account, nil
 }
 
+// Transfer moves funds from one account to another
 func (s *AccountService) Transfer(sourceID, destID int64, amount decimal.Decimal) (err error) {
 	if err = validateAccountID(sourceID); err != nil {
 		log.Printf("Transfer validation failed for sourceID: %v", err)
