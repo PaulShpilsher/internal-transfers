@@ -73,7 +73,7 @@ func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 
 func (h *AccountHandler) GetAccount(ctx iris.Context) {
 	// Example: get ID from URL
-	idStr := ctx.URLParam("id")
+	idStr := ctx.Params().Get("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
 		ctx.StatusCode(iris.StatusBadRequest)
