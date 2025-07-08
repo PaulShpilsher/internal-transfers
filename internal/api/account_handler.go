@@ -43,5 +43,5 @@ func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 		ctx.StopWithError(iris.StatusInternalServerError, err)
 		return
 	}
-	ctx.StatusCode(iris.StatusOK)
+	ctx.StatusCode(iris.StatusCreated)
 }
