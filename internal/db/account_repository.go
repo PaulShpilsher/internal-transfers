@@ -11,6 +11,17 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// AccountRepositoryPort defines the repository interface for accounts
+// (Add the above go:generate if you want to use mockgen for tests)
+//
+//go:generate mockgen -destination=../mocks/mock_account_repository.go -package=mocks internal-transfers/internal/db AccountRepositoryPort
+type AccountRepositoryPort interface {
+	BeginTx() (*Transaction, error)
+	CreateAccount(accountID int64, initialBalance decimal.Decimal) error
+	GetAccountBalance(tx *Transaction, accountID int64) (decimal.Decimal, error)
+	UpdateAccountBalance(tx *Transaction, accountID int64, delta decimal.Decimal) error
+}
+
 type AccountRepository struct {
 	conn *sql.DB
 }
@@ -64,6 +75,9 @@ func (repo *AccountRepository) GetAccountBalance(tx *Transaction, accountID int6
 
 // UpdateAccountBalanceTx updates the balance for an account within a transaction
 func (repo *AccountRepository) UpdateAccountBalance(tx *Transaction, accountID int64, delta decimal.Decimal) error {
+	if tx == nil {
+		return fmt.Errorf("transaction is nil")
+	}
 	_, err := tx.tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE account_id = $2`, delta.String(), accountID)
 	if err != nil {
 		log.Printf("UpdateAccountBalanceTx DB error: %v", err)

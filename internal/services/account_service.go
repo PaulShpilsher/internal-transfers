@@ -13,11 +13,20 @@ import (
 
 const maxDecimalPrecision = 8
 
-type AccountService struct {
-	repo *db.AccountRepository
+// AccountServicePort defines the service interface for accounts
+//
+//go:generate mockgen -destination=../mocks/mock_account_service.go -package=mocks internal-transfers/internal/services AccountServicePort
+type AccountServicePort interface {
+	CreateAccount(account model.Account) error
+	GetAccount(id int64) (model.Account, error)
+	Transfer(sourceID, destID int64, amount decimal.Decimal) error
 }
 
-func NewAccountService(repo *db.AccountRepository) *AccountService {
+type AccountService struct {
+	repo db.AccountRepositoryPort
+}
+
+func NewAccountService(repo db.AccountRepositoryPort) *AccountService {
 	return &AccountService{repo: repo}
 }
 

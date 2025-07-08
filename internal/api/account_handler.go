@@ -18,11 +18,11 @@ type ErrorResponse struct {
 }
 
 type AccountHandler struct {
-	Service *services.AccountService
+	service services.AccountServicePort
 }
 
-func NewAccountHandler(service *services.AccountService) *AccountHandler {
-	return &AccountHandler{Service: service}
+func NewAccountHandler(service services.AccountServicePort) *AccountHandler {
+	return &AccountHandler{service: service}
 }
 
 func (h *AccountHandler) CreateAccount(ctx iris.Context) {
@@ -50,7 +50,7 @@ func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 		AccountID: req.AccountID,
 		Balance:   balance,
 	}
-	if err := h.Service.CreateAccount(account); err != nil {
+	if err := h.service.CreateAccount(account); err != nil {
 		switch {
 		case errors.Is(err, model.ErrAccountIDMustBePositive),
 			errors.Is(err, model.ErrBalanceMustBeNonNegative),
@@ -72,7 +72,7 @@ func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 }
 
 func (h *AccountHandler) GetAccount(ctx iris.Context) {
-	// Example: get ID from URL
+	// get ID from URL
 	idStr := ctx.Params().Get("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
@@ -81,7 +81,7 @@ func (h *AccountHandler) GetAccount(ctx iris.Context) {
 		return
 	}
 
-	account, err := h.Service.GetAccount(id)
+	account, err := h.service.GetAccount(id)
 	if err != nil {
 		if errors.Is(err, model.ErrAccountNotFound) {
 			ctx.StatusCode(iris.StatusNotFound)
@@ -128,7 +128,7 @@ func (h *AccountHandler) SubmitTransaction(ctx iris.Context) {
 		return
 	}
 
-	err = h.Service.Transfer(req.SourceAccountID, req.DestinationAccountID, amount)
+	err = h.service.Transfer(req.SourceAccountID, req.DestinationAccountID, amount)
 	if err != nil {
 		switch {
 		case errors.Is(err, model.ErrAccountIDMustBePositive),
