@@ -16,10 +16,10 @@ import (
 //
 //go:generate mockgen -destination=../mocks/mock_account_repository.go -package=mocks internal-transfers/internal/db AccountRepositoryPort
 type AccountRepositoryPort interface {
-	BeginTx() (*Transaction, error)
+	BeginTx() (TransactionPort, error)
 	CreateAccount(accountID int64, initialBalance decimal.Decimal) error
-	GetAccountBalance(tx *Transaction, accountID int64) (decimal.Decimal, error)
-	UpdateAccountBalance(tx *Transaction, accountID int64, delta decimal.Decimal) error
+	GetAccountBalance(tx TransactionPort, accountID int64) (decimal.Decimal, error)
+	UpdateAccountBalance(tx TransactionPort, accountID int64, delta decimal.Decimal) error
 }
 
 type AccountRepository struct {
@@ -31,7 +31,7 @@ func NewAccountRepository(db *sql.DB) *AccountRepository {
 }
 
 // BeginTx starts a new transaction and returns the abstraction
-func (repo *AccountRepository) BeginTx() (*Transaction, error) {
+func (repo *AccountRepository) BeginTx() (TransactionPort, error) {
 	tx, err := repo.conn.Begin()
 	if err != nil {
 		return nil, err
@@ -47,12 +47,16 @@ func (repo *AccountRepository) CreateAccount(accountID int64, initialBalance dec
 	return err
 }
 
-func (repo *AccountRepository) GetAccountBalance(tx *Transaction, accountID int64) (decimal.Decimal, error) {
+func (repo *AccountRepository) GetAccountBalance(tx TransactionPort, accountID int64) (decimal.Decimal, error) {
 	var balanceStr string
 	var err error
 
 	if tx != nil {
-		err = tx.tx.QueryRow(`SELECT balance FROM accounts WHERE account_id = $1 FOR UPDATE LIMIT 1`, accountID).Scan(&balanceStr)
+		dbTx, ok := tx.(*Transaction)
+		if !ok {
+			return decimal.Zero, fmt.Errorf("invalid transaction type")
+		}
+		err = dbTx.tx.QueryRow(`SELECT balance FROM accounts WHERE account_id = $1 FOR UPDATE LIMIT 1`, accountID).Scan(&balanceStr)
 	} else {
 		err = repo.conn.QueryRow(`SELECT balance FROM accounts WHERE account_id = $1 LIMIT 1`, accountID).Scan(&balanceStr)
 	}
@@ -74,11 +78,15 @@ func (repo *AccountRepository) GetAccountBalance(tx *Transaction, accountID int6
 }
 
 // UpdateAccountBalanceTx updates the balance for an account within a transaction
-func (repo *AccountRepository) UpdateAccountBalance(tx *Transaction, accountID int64, delta decimal.Decimal) error {
+func (repo *AccountRepository) UpdateAccountBalance(tx TransactionPort, accountID int64, delta decimal.Decimal) error {
 	if tx == nil {
 		return fmt.Errorf("transaction is nil")
 	}
-	_, err := tx.tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE account_id = $2`, delta.String(), accountID)
+	dbTx, ok := tx.(*Transaction)
+	if !ok {
+		return fmt.Errorf("invalid transaction type")
+	}
+	_, err := dbTx.tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE account_id = $2`, delta.String(), accountID)
 	if err != nil {
 		log.Printf("UpdateAccountBalanceTx DB error: %v", err)
 	}

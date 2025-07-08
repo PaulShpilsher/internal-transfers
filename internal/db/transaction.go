@@ -2,6 +2,12 @@ package db
 
 import "database/sql"
 
+//go:generate mockgen -destination=../mocks/mock_transaction_port.go -package=mocks internal-transfers/internal/db TransactionPort
+type TransactionPort interface {
+	Commit() error
+	Rollback() error
+}
+
 type Transaction struct {
 	tx *sql.Tx
 }
