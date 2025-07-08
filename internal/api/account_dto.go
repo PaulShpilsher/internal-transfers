@@ -1,5 +1,7 @@
 package api
 
+// Package api provides the data transfer objects (DTOs) for account and transaction operations.
+
 type CreateAccountRequest struct {
 	AccountID      int64  `json:"account_id" validate:"required,gt=0"`
 	InitialBalance string `json:"initial_balance" validate:"required"`

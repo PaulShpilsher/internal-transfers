@@ -16,23 +16,27 @@ import (
 )
 
 func main() {
+	// Load configuration
 	cfg, err := config.LoadConfig()
 	if err != nil {
-		// Use standard error output for config errors
 		println("Config error:", err.Error())
 		os.Exit(1)
 	}
 
+	// Initialize database connection
 	dbConn, err := db.NewDBConnectionFromDSN(cfg.DBUrl)
 	if err != nil {
 		println("Database connection error:", err.Error())
 		os.Exit(1)
 	}
+	defer dbConn.Close()
 
+	// Initialize repositories and services
 	repo := db.NewAccountRepository(dbConn)
 	service := services.NewAccountService(repo)
 	handler := api.NewAccountHandler(service)
 
+	// Create and configure the Iris application
 	app := iris.New()
 
 	api.RegisterRoutes(app, handler)
