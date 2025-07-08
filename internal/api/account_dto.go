@@ -1,7 +1,5 @@
 package api
 
-// Package api provides the data transfer objects (DTOs) for account and transaction operations.
-
 // CreateAccountRequest represents the request body for creating a new account.
 type CreateAccountRequest struct {
 	AccountID      int64  `json:"account_id" validate:"required,gt=0"`
