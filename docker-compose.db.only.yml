@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   db:
-    build:
-      context: .
-      dockerfile: data/postgres/Dockerfile
+    image: postgres:16
     ports:
       - "5432:5432"
     env_file:
