@@ -5,15 +5,30 @@ import (
 	"internal-transfers/internal/db"
 	"internal-transfers/internal/services"
 
+	"fmt"
+	"os"
+
+	"github.com/joho/godotenv"
+
 	"github.com/kataras/iris/v12"
 )
 
 func main() {
-	app := iris.New()
-	repo, _ := db.NewAccountRepository("your-dsn")
+	_ = godotenv.Load()
+
+	host := os.Getenv("POSTGRES_HOST")
+	port := os.Getenv("POSTGRES_PORT")
+	user := os.Getenv("POSTGRES_USER")
+	password := os.Getenv("POSTGRES_PASSWORD")
+	dbname := os.Getenv("POSTGRES_DB")
+
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
+
+	repo, _ := db.NewAccountRepository(dsn)
 	service := services.NewAccountService(repo)
 	handler := api.NewAccountHandler(service)
 
+	app := iris.New()
 	app.Post("/accounts", handler.CreateAccount)
 	app.Listen(":8080")
 }
