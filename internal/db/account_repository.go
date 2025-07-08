@@ -2,8 +2,9 @@ package db
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
+
+	"internal-transfers/internal/model"
 
 	_ "github.com/lib/pq"
 	"github.com/shopspring/decimal"
@@ -29,15 +30,21 @@ func (p *AccountRepository) CreateAccount(accountID int64, initialBalance decima
 	return err
 }
 
-func (p *AccountRepository) GetAccount(accountID int64) (decimal.Decimal, error) {
+func (p *AccountRepository) GetAccountBalance(accountID int64) (decimal.Decimal, error) {
 	var balanceStr string
 	err := p.Conn.QueryRow(`SELECT balance FROM accounts WHERE account_id = $1`, accountID).Scan(&balanceStr)
 	if err == sql.ErrNoRows {
-		return decimal.Zero, errors.New("account not found")
+		return decimal.Zero, model.ErrAccountNotFound
 	}
 	if err != nil {
-		return decimal.Zero, err
+		return decimal.Zero, fmt.Errorf("query account by id: %w", err)
 	}
+	// if err == sql.ErrNoRows {
+	// 	return decimal.Zero, errors.New("account not found")
+	// }
+	// if err != nil {
+	// 	return decimal.Zero, err
+	// }
 	balance, err := decimal.NewFromString(balanceStr)
 	if err != nil {
 		return decimal.Zero, err

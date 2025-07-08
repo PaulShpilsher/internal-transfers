@@ -30,5 +30,8 @@ func main() {
 
 	app := iris.New()
 	app.Post("/accounts", handler.CreateAccount)
+
+	// Register GET /accounts/{id} with id as int64
+	app.Get("/accounts/{id:uint64}", handler.GetAccount)
 	app.Listen(":8080")
 }
