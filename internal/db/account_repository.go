@@ -11,40 +11,44 @@ import (
 )
 
 type AccountRepository struct {
-	Conn *sql.DB
+	conn *sql.DB
 }
 
-func NewAccountRepository(dataSource string) (*AccountRepository, error) {
-	db, err := sql.Open("postgres", dataSource)
+func NewAccountRepository(db *sql.DB) *AccountRepository {
+	return &AccountRepository{conn: db}
+}
+
+// BeginTx starts a new transaction and returns the abstraction
+func (p *AccountRepository) BeginTx() (*Transaction, error) {
+	tx, err := p.conn.Begin()
 	if err != nil {
 		return nil, err
 	}
-	if err := db.Ping(); err != nil {
-		return nil, err
-	}
-	return &AccountRepository{Conn: db}, nil
+	return &Transaction{tx: tx}, nil
 }
 
 func (p *AccountRepository) CreateAccount(accountID int64, initialBalance decimal.Decimal) error {
-	_, err := p.Conn.Exec(`INSERT INTO accounts (account_id, balance) VALUES ($1, $2)`, accountID, initialBalance)
+	_, err := p.conn.Exec(`INSERT INTO accounts (account_id, balance) VALUES ($1, $2)`, accountID, initialBalance.String)
 	return err
 }
 
-func (p *AccountRepository) GetAccountBalance(accountID int64) (decimal.Decimal, error) {
+func (p *AccountRepository) GetAccountBalance(tx *Transaction, accountID int64) (decimal.Decimal, error) {
 	var balanceStr string
-	err := p.Conn.QueryRow(`SELECT balance FROM accounts WHERE account_id = $1`, accountID).Scan(&balanceStr)
+	var err error
+
+	if tx != nil {
+		err = tx.tx.QueryRow(`SELECT balance FROM accounts WHERE account_id = $1 FOR UPDATE LIMIT 1`, accountID).Scan(&balanceStr)
+	} else {
+		err = p.conn.QueryRow(`SELECT balance FROM accounts WHERE account_id = $1 LIMIT 1`, accountID).Scan(&balanceStr)
+	}
+
 	if err == sql.ErrNoRows {
 		return decimal.Zero, model.ErrAccountNotFound
 	}
 	if err != nil {
 		return decimal.Zero, fmt.Errorf("query account by id: %w", err)
 	}
-	// if err == sql.ErrNoRows {
-	// 	return decimal.Zero, errors.New("account not found")
-	// }
-	// if err != nil {
-	// 	return decimal.Zero, err
-	// }
+
 	balance, err := decimal.NewFromString(balanceStr)
 	if err != nil {
 		return decimal.Zero, err
@@ -52,38 +56,17 @@ func (p *AccountRepository) GetAccountBalance(accountID int64) (decimal.Decimal,
 	return balance, nil
 }
 
-func (p *AccountRepository) Transfer(sourceID, destID int64, amount decimal.Decimal) error {
-	tx, err := p.Conn.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	var sourceBalanceStr string
-	err = tx.QueryRow(`SELECT balance FROM accounts WHERE account_id = $1 FOR UPDATE`, sourceID).Scan(&sourceBalanceStr)
-	if err != nil {
-		return fmt.Errorf("source account not found")
-	}
-	sourceBalance, err := decimal.NewFromString(sourceBalanceStr)
-	if err != nil {
-		return err
-	}
-	if sourceBalance.LessThan(amount) {
-		return fmt.Errorf("insufficient funds")
-	}
-
-	_, err = tx.Exec(`UPDATE accounts SET balance = balance - $1 WHERE account_id = $2`, amount, sourceID)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE account_id = $2`, amount, destID)
-	if err != nil {
-		return err
-	}
-	_, err = tx.Exec(`INSERT INTO transactions (source_account_id, destination_account_id, amount) VALUES ($1, $2, $3)`, sourceID, destID, amount)
-	if err != nil {
-		return err
-	}
-
-	return tx.Commit()
+// UpdateAccountBalanceTx updates the balance for an account within a transaction
+func (p *AccountRepository) UpdateAccountBalance(tx *Transaction, accountID int64, delta decimal.Decimal) error {
+	_, err := tx.tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE account_id = $2`, delta.String(), accountID)
+	return err
 }
+
+// func (t *PostgresTransaction) UpdateAccountBalance(accountID int64, delta decimal.Decimal) error {
+// 	_, err := t.tx.Exec(`UPDATE accounts SET balance = balance + $1 WHERE account_id = $2`, delta, accountID)
+// 	return err
+// }
+// func (t *PostgresTransaction) InsertTransaction(sourceID, destID int64, amount decimal.Decimal) error {
+// 	_, err := t.tx.Exec(`INSERT INTO transactions (source_account_id, destination_account_id, amount) VALUES ($1, $2, $3)`, sourceID, destID, amount)
+// 	return err
+// }

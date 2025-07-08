@@ -13,6 +13,10 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+type ErrorResponse struct {
+	Error string `json:"error"`
+}
+
 type AccountHandler struct {
 	Service *services.AccountService
 }
@@ -24,19 +28,22 @@ func NewAccountHandler(service *services.AccountService) *AccountHandler {
 func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 	var req CreateAccountRequest
 	if err := ctx.ReadJSON(&req); err != nil {
-		ctx.StopWithStatus(iris.StatusBadRequest)
+		ctx.StatusCode(iris.StatusBadRequest)
+		ctx.JSON(ErrorResponse{Error: "invalid request body: " + err.Error()})
 		return
 	}
 
 	validate := validator.New()
 	if err := validate.Struct(req); err != nil {
-		ctx.StopWithError(iris.StatusBadRequest, err)
+		ctx.StatusCode(iris.StatusBadRequest)
+		ctx.JSON(ErrorResponse{Error: "validation error: " + err.Error()})
 		return
 	}
 
 	balance, err := decimal.NewFromString(req.InitialBalance)
 	if err != nil {
-		ctx.StopWithError(iris.StatusBadRequest, err)
+		ctx.StatusCode(iris.StatusBadRequest)
+		ctx.JSON(ErrorResponse{Error: "invalid initial balance: " + err.Error()})
 		return
 	}
 	account := model.Account{
@@ -44,7 +51,8 @@ func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 		Balance:   balance,
 	}
 	if err := h.Service.CreateAccount(account); err != nil {
-		ctx.StopWithError(iris.StatusInternalServerError, err)
+		ctx.StatusCode(iris.StatusInternalServerError)
+		ctx.JSON(ErrorResponse{Error: "failed to create account: " + err.Error()})
 		return
 	}
 	ctx.StatusCode(iris.StatusCreated)
@@ -55,18 +63,21 @@ func (h *AccountHandler) GetAccount(ctx iris.Context) {
 	idStr := ctx.URLParam("id")
 	id, err := strconv.ParseInt(idStr, 10, 64)
 	if err != nil {
-		ctx.StopWithError(iris.StatusBadRequest, errors.New("invalid account id"))
+		ctx.StatusCode(iris.StatusBadRequest)
+		ctx.JSON(ErrorResponse{Error: "invalid account id: " + err.Error()})
 		return
 	}
 
 	account, err := h.Service.GetAccount(id)
 	if errors.Is(err, model.ErrAccountNotFound) {
-		ctx.StopWithError(iris.StatusNotFound, errors.New("account not found"))
+		ctx.StatusCode(iris.StatusNotFound)
+		ctx.JSON(ErrorResponse{Error: "account not found"})
 		return
 	}
 	if err != nil {
 		log.Printf("get account error: %v", err)
-		ctx.StopWithError(iris.StatusInternalServerError, errors.New("internal server error"))
+		ctx.StatusCode(iris.StatusInternalServerError)
+		ctx.JSON(ErrorResponse{Error: "internal server error"})
 		return
 	}
 
@@ -76,7 +87,44 @@ func (h *AccountHandler) GetAccount(ctx iris.Context) {
 	}
 	if err := ctx.JSON(resp); err != nil {
 		log.Printf("failed to write response: %v", err)
-		ctx.StopWithError(iris.StatusInternalServerError, errors.New("internal server error"))
+		ctx.StatusCode(iris.StatusInternalServerError)
+		ctx.JSON(ErrorResponse{Error: "internal server error"})
 		return
 	}
+}
+
+func (h *AccountHandler) SubmitTransaction(ctx iris.Context) {
+	var req CreateTransactionRequest
+	if err := ctx.ReadJSON(&req); err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		ctx.JSON(ErrorResponse{Error: "invalid request body: " + err.Error()})
+		return
+	}
+
+	validate := validator.New()
+	if err := validate.Struct(req); err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		ctx.JSON(ErrorResponse{Error: "validation error: " + err.Error()})
+		return
+	}
+
+	amount, err := decimal.NewFromString(req.Amount)
+	if err != nil {
+		ctx.StatusCode(iris.StatusBadRequest)
+		ctx.JSON(ErrorResponse{Error: "invalid amount: " + err.Error()})
+		return
+	}
+
+	err = h.Service.Transfer(req.SourceAccountID, req.DestinationAccountID, amount)
+	if err != nil {
+		if err.Error() == "insufficient funds" {
+			ctx.StatusCode(iris.StatusBadRequest)
+			ctx.JSON(ErrorResponse{Error: "insufficient funds"})
+			return
+		}
+		ctx.StatusCode(iris.StatusInternalServerError)
+		ctx.JSON(ErrorResponse{Error: "failed to submit transaction: " + err.Error()})
+		return
+	}
+	ctx.StatusCode(iris.StatusOK)
 }

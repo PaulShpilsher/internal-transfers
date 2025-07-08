@@ -5,10 +5,13 @@ import (
 	"internal-transfers/internal/db"
 	"internal-transfers/internal/services"
 
-	"fmt"
-	"os"
-
 	"github.com/joho/godotenv"
+
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/kataras/iris/v12"
 )
@@ -16,20 +19,35 @@ import (
 func main() {
 	_ = godotenv.Load()
 
-	host := os.Getenv("POSTGRES_HOST")
-	port := os.Getenv("POSTGRES_PORT")
-	user := os.Getenv("POSTGRES_USER")
-	password := os.Getenv("POSTGRES_PASSWORD")
-	dbname := os.Getenv("POSTGRES_DB")
+	dbConn, err := db.NewDBConnection()
+	if err != nil {
+		panic(err)
+	}
 
-	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable", host, port, user, password, dbname)
-
-	repo, _ := db.NewAccountRepository(dsn)
+	repo := db.NewAccountRepository(dbConn)
 	service := services.NewAccountService(repo)
 	handler := api.NewAccountHandler(service)
 
 	app := iris.New()
 
 	api.RegisterRoutes(app, handler)
-	app.Listen(":8080")
+
+	// Graceful shutdown setup
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		if err := app.Listen(":8080", iris.WithoutInterruptHandler); err != nil {
+			app.Logger().Fatalf("Server error: %v", err)
+		}
+	}()
+
+	<-quit
+	app.Logger().Info("Shutting down server...")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := app.Shutdown(ctx); err != nil {
+		app.Logger().Fatalf("Server forced to shutdown: %v", err)
+	}
 }
