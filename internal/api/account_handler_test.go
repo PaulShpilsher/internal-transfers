@@ -37,7 +37,7 @@ func TestCreateAccount_Success(t *testing.T) {
 	}
 	mockSvc.EXPECT().CreateAccount(acc).Return(nil)
 	body, _ := json.Marshal(req)
-	resp := httptest.New(t, app).POST("/accounts").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/accounts").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusCreated)
 }
 
@@ -46,7 +46,7 @@ func TestCreateAccount_InvalidJSON(t *testing.T) {
 	defer ctrl.Finish()
 	mockSvc := mocks.NewMockAccountServicePort(ctrl)
 	app := setupTestApp(t, mockSvc)
-	resp := httptest.New(t, app).POST("/accounts").WithText("not-json").Expect()
+	resp := httptest.New(t, app).POST("/accounts").WithHeader("Content-Type", "application/json").WithText("not-json").Expect()
 	resp.Status(http.StatusBadRequest)
 	resp.JSON().Object().ValueEqual("error", "invalid request body: invalid character 'o' in literal null (expecting 'u')")
 }
@@ -59,7 +59,7 @@ func TestCreateAccount_ValidationError(t *testing.T) {
 	// AccountID is 0 (invalid)
 	req := CreateAccountRequest{AccountID: 0, InitialBalance: "100.00"}
 	body, _ := json.Marshal(req)
-	resp := httptest.New(t, app).POST("/accounts").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/accounts").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusBadRequest)
 	resp.JSON().Object().Value("error").String().Contains("validation error")
 }
@@ -71,7 +71,7 @@ func TestCreateAccount_InvalidInitialBalance(t *testing.T) {
 	app := setupTestApp(t, mockSvc)
 	req := CreateAccountRequest{AccountID: 1, InitialBalance: "not-a-number"}
 	body, _ := json.Marshal(req)
-	resp := httptest.New(t, app).POST("/accounts").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/accounts").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusBadRequest)
 	resp.JSON().Object().Value("error").String().Contains("invalid initial balance")
 }
@@ -96,7 +96,7 @@ func TestCreateAccount_ServiceValidationErrors(t *testing.T) {
 			acc := model.Account{AccountID: req.AccountID, Balance: decimal.RequireFromString(req.InitialBalance)}
 			mockSvc.EXPECT().CreateAccount(acc).Return(tc.err)
 			body, _ := json.Marshal(req)
-			resp := httptest.New(t, app).POST("/accounts").WithBytes(body).Expect()
+			resp := httptest.New(t, app).POST("/accounts").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 			resp.Status(http.StatusBadRequest)
 			resp.JSON().Object().Value("error").String().Contains(tc.err.Error())
 		})
@@ -112,7 +112,7 @@ func TestCreateAccount_Conflict(t *testing.T) {
 	acc := model.Account{AccountID: req.AccountID, Balance: decimal.RequireFromString(req.InitialBalance)}
 	mockSvc.EXPECT().CreateAccount(acc).Return(model.ErrAccountIDAlreadyExists)
 	body, _ := json.Marshal(req)
-	resp := httptest.New(t, app).POST("/accounts").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/accounts").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusConflict)
 	resp.JSON().Object().Value("error").String().Contains(model.ErrAccountIDAlreadyExists.Error())
 }
@@ -126,7 +126,7 @@ func TestCreateAccount_InternalServerError(t *testing.T) {
 	acc := model.Account{AccountID: req.AccountID, Balance: decimal.RequireFromString(req.InitialBalance)}
 	mockSvc.EXPECT().CreateAccount(acc).Return(assert.AnError)
 	body, _ := json.Marshal(req)
-	resp := httptest.New(t, app).POST("/accounts").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/accounts").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusInternalServerError)
 	resp.JSON().Object().Value("error").String().Contains("failed to create account")
 }
@@ -189,7 +189,7 @@ func TestSubmitTransaction_Success(t *testing.T) {
 	amount := decimal.RequireFromString(req.Amount)
 	mockSvc.EXPECT().Transfer(req.SourceAccountID, req.DestinationAccountID, amount).Return(nil)
 	body, _ := json.Marshal(req)
-	resp := httptest.New(t, app).POST("/transactions").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/transactions").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusOK)
 }
 
@@ -198,7 +198,7 @@ func TestSubmitTransaction_InvalidJSON(t *testing.T) {
 	defer ctrl.Finish()
 	mockSvc := mocks.NewMockAccountServicePort(ctrl)
 	app := setupTestApp(t, mockSvc)
-	resp := httptest.New(t, app).POST("/transactions").WithText("not-json").Expect()
+	resp := httptest.New(t, app).POST("/transactions").WithHeader("Content-Type", "application/json").WithText("not-json").Expect()
 	resp.Status(http.StatusBadRequest)
 	resp.JSON().Object().Value("error").String().Contains("invalid request body")
 }
@@ -210,7 +210,7 @@ func TestSubmitTransaction_ValidationError(t *testing.T) {
 	app := setupTestApp(t, mockSvc)
 	req := CreateTransactionRequest{SourceAccountID: 0, DestinationAccountID: 2, Amount: "10.00"}
 	body, _ := json.Marshal(req)
-	resp := httptest.New(t, app).POST("/transactions").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/transactions").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusBadRequest)
 	resp.JSON().Object().Value("error").String().Contains("validation error")
 }
@@ -222,7 +222,7 @@ func TestSubmitTransaction_InvalidAmount(t *testing.T) {
 	app := setupTestApp(t, mockSvc)
 	req := CreateTransactionRequest{SourceAccountID: 1, DestinationAccountID: 2, Amount: "not-a-number"}
 	body, _ := json.Marshal(req)
-	resp := httptest.New(t, app).POST("/transactions").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/transactions").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusBadRequest)
 	resp.JSON().Object().Value("error").String().Contains("invalid amount")
 }
@@ -248,7 +248,7 @@ func TestSubmitTransaction_ServiceValidationErrors(t *testing.T) {
 			amount := decimal.RequireFromString(req.Amount)
 			mockSvc.EXPECT().Transfer(req.SourceAccountID, req.DestinationAccountID, amount).Return(tc.err)
 			body, _ := json.Marshal(req)
-			resp := httptest.New(t, app).POST("/transactions").WithBytes(body).Expect()
+			resp := httptest.New(t, app).POST("/transactions").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 			resp.Status(http.StatusBadRequest)
 			resp.JSON().Object().Value("error").String().Contains(tc.err.Error())
 		})
@@ -265,7 +265,7 @@ func TestSubmitTransaction_NotFound(t *testing.T) {
 	for _, errVal := range testCases {
 		mockSvc.EXPECT().Transfer(int64(1), int64(2), decimal.RequireFromString("10.00")).Return(errVal)
 		body, _ := json.Marshal(CreateTransactionRequest{SourceAccountID: 1, DestinationAccountID: 2, Amount: "10.00"})
-		resp := httptest.New(t, app).POST("/transactions").WithBytes(body).Expect()
+		resp := httptest.New(t, app).POST("/transactions").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 		resp.Status(http.StatusNotFound)
 		resp.JSON().Object().Value("error").String().Contains(errVal.Error())
 	}
@@ -278,7 +278,7 @@ func TestSubmitTransaction_InsufficientFunds(t *testing.T) {
 	app := setupTestApp(t, mockSvc)
 	mockSvc.EXPECT().Transfer(int64(1), int64(2), decimal.RequireFromString("10.00")).Return(model.ErrInsufficientFunds)
 	body, _ := json.Marshal(CreateTransactionRequest{SourceAccountID: 1, DestinationAccountID: 2, Amount: "10.00"})
-	resp := httptest.New(t, app).POST("/transactions").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/transactions").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusBadRequest)
 	resp.JSON().Object().Value("error").String().Contains(model.ErrInsufficientFunds.Error())
 }
@@ -290,7 +290,7 @@ func TestSubmitTransaction_InternalServerError(t *testing.T) {
 	app := setupTestApp(t, mockSvc)
 	mockSvc.EXPECT().Transfer(int64(1), int64(2), decimal.RequireFromString("10.00")).Return(assert.AnError)
 	body, _ := json.Marshal(CreateTransactionRequest{SourceAccountID: 1, DestinationAccountID: 2, Amount: "10.00"})
-	resp := httptest.New(t, app).POST("/transactions").WithBytes(body).Expect()
+	resp := httptest.New(t, app).POST("/transactions").WithHeader("Content-Type", "application/json").WithBytes(body).Expect()
 	resp.Status(http.StatusInternalServerError)
 	resp.JSON().Object().Value("error").String().Contains("failed to submit transaction")
 }
