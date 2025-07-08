@@ -21,9 +21,15 @@ git clone git@github.com:PaulShpilsher/internal-transfers.git
 cd internal-transfers
 ```
 
+### Download Go dependencies
+
+```bash
+go mod download
+```
+
 ### Environment Configuration
 
-Create a `.env.docker` file in the project root with the following content (edit as needed):
+If missing create a `.env.docker` file in the project root with the following content (edit as needed):
 
 ```env
 APP_ENV=docker
