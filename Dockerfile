@@ -21,7 +21,6 @@ RUN apk --no-cache add ca-certificates
 RUN adduser -D -g '' appuser
 
 COPY --from=builder /app/internal-transfers ./internal-transfers
-COPY --from=builder /app/data ./data
 
 # Set permissions
 RUN chown -R appuser:appuser /app
