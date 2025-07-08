@@ -14,11 +14,11 @@ import (
 const maxDecimalPrecision = 8
 
 type AccountService struct {
-	Repo *db.AccountRepository
+	repo *db.AccountRepository
 }
 
 func NewAccountService(repo *db.AccountRepository) *AccountService {
-	return &AccountService{Repo: repo}
+	return &AccountService{repo: repo}
 }
 
 // Validation helpers
@@ -50,7 +50,7 @@ func (s *AccountService) CreateAccount(account model.Account) error {
 		return err
 	}
 
-	err := s.Repo.CreateAccount(account.AccountID, account.Balance)
+	err := s.repo.CreateAccount(account.AccountID, account.Balance)
 	if err != nil {
 		// Handle unique constraint violation (Postgres error code 23505)
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
@@ -69,7 +69,7 @@ func (s *AccountService) GetAccount(id int64) (model.Account, error) {
 		log.Printf("GetAccount validation failed: %v", err)
 		return model.Account{}, err
 	}
-	balance, err := s.Repo.GetAccountBalance(nil, id)
+	balance, err := s.repo.GetAccountBalance(nil, id)
 	if err != nil {
 		if errors.Is(err, model.ErrAccountNotFound) {
 			return model.Account{}, model.ErrAccountNotFound
@@ -107,7 +107,7 @@ func (s *AccountService) Transfer(sourceID, destID int64, amount decimal.Decimal
 		return err
 	}
 
-	txn, err := s.Repo.BeginTx()
+	txn, err := s.repo.BeginTx()
 	if err != nil {
 		log.Printf("Transfer failed to begin transaction: %v", err)
 		return err
@@ -124,7 +124,7 @@ func (s *AccountService) Transfer(sourceID, destID int64, amount decimal.Decimal
 	}()
 
 	// Lock source account row and get balance
-	balance, err := s.Repo.GetAccountBalance(txn, sourceID)
+	balance, err := s.repo.GetAccountBalance(txn, sourceID)
 	if err != nil {
 		if errors.Is(err, model.ErrAccountNotFound) {
 			log.Printf("Transfer source account not found: %d", sourceID)
@@ -139,7 +139,7 @@ func (s *AccountService) Transfer(sourceID, destID int64, amount decimal.Decimal
 	}
 
 	// Lock destination account row to ensure it exists
-	_, err = s.Repo.GetAccountBalance(txn, destID)
+	_, err = s.repo.GetAccountBalance(txn, destID)
 	if err != nil {
 		if errors.Is(err, model.ErrAccountNotFound) {
 			log.Printf("Transfer destination account not found: %d", destID)
@@ -150,11 +150,11 @@ func (s *AccountService) Transfer(sourceID, destID int64, amount decimal.Decimal
 	}
 
 	// Update balances
-	if err = s.Repo.UpdateAccountBalance(txn, sourceID, amount.Neg()); err != nil {
+	if err = s.repo.UpdateAccountBalance(txn, sourceID, amount.Neg()); err != nil {
 		log.Printf("Transfer error updating source balance: %v", err)
 		return err
 	}
-	if err = s.Repo.UpdateAccountBalance(txn, destID, amount); err != nil {
+	if err = s.repo.UpdateAccountBalance(txn, destID, amount); err != nil {
 		log.Printf("Transfer error updating destination balance: %v", err)
 		return err
 	}

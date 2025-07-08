@@ -2,10 +2,9 @@ package main
 
 import (
 	"internal-transfers/internal/api"
+	"internal-transfers/internal/config"
 	"internal-transfers/internal/db"
 	"internal-transfers/internal/services"
-
-	"github.com/joho/godotenv"
 
 	"context"
 	"os"
@@ -17,11 +16,17 @@ import (
 )
 
 func main() {
-	_ = godotenv.Load()
-
-	dbConn, err := db.NewDBConnection()
+	cfg, err := config.LoadConfig()
 	if err != nil {
-		panic(err)
+		// Use standard error output for config errors
+		println("Config error:", err.Error())
+		os.Exit(1)
+	}
+
+	dbConn, err := db.NewDBConnectionFromDSN(cfg.DBUrl)
+	if err != nil {
+		println("Database connection error:", err.Error())
+		os.Exit(1)
 	}
 
 	repo := db.NewAccountRepository(dbConn)
@@ -37,7 +42,7 @@ func main() {
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 
 	go func() {
-		if err := app.Listen(":8080", iris.WithoutInterruptHandler); err != nil {
+		if err := app.Listen(":"+cfg.ServerPort, iris.WithoutInterruptHandler); err != nil {
 			app.Logger().Fatalf("Server error: %v", err)
 		}
 	}()
