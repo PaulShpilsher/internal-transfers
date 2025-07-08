@@ -51,16 +51,14 @@ func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 		Balance:   balance,
 	}
 	if err := h.Service.CreateAccount(account); err != nil {
-		switch err.Error() {
-		case "account id must be a positive number", "balance must be non-negative":
+		switch {
+		case errors.Is(err, model.ErrAccountIDMustBePositive),
+			errors.Is(err, model.ErrBalanceMustBeNonNegative),
+			errors.Is(err, model.ErrPrecisionTooHigh):
 			ctx.StatusCode(iris.StatusBadRequest)
 			ctx.JSON(ErrorResponse{Error: err.Error()})
 			return
-		case "precision must be 8 or fewer decimal places":
-			ctx.StatusCode(iris.StatusBadRequest)
-			ctx.JSON(ErrorResponse{Error: err.Error()})
-			return
-		case "account id already exists":
+		case errors.Is(err, model.ErrAccountIDAlreadyExists):
 			ctx.StatusCode(iris.StatusConflict)
 			ctx.JSON(ErrorResponse{Error: err.Error()})
 			return
@@ -90,7 +88,6 @@ func (h *AccountHandler) GetAccount(ctx iris.Context) {
 			ctx.JSON(ErrorResponse{Error: "account not found"})
 			return
 		}
-
 		log.Printf("get account error: %v", err)
 		ctx.StatusCode(iris.StatusInternalServerError)
 		ctx.JSON(ErrorResponse{Error: "internal server error"})
@@ -133,19 +130,19 @@ func (h *AccountHandler) SubmitTransaction(ctx iris.Context) {
 
 	err = h.Service.Transfer(req.SourceAccountID, req.DestinationAccountID, amount)
 	if err != nil {
-		switch err.Error() {
-		case "account id must be a positive number",
-			"source and destination accounts must be different",
-			"amount must be positive",
-			"precision must be 8 or fewer decimal places":
+		switch {
+		case errors.Is(err, model.ErrAccountIDMustBePositive),
+			errors.Is(err, model.ErrSourceAndDestinationMustDiffer),
+			errors.Is(err, model.ErrAmountMustBePositive),
+			errors.Is(err, model.ErrPrecisionTooHigh):
 			ctx.StatusCode(iris.StatusBadRequest)
 			ctx.JSON(ErrorResponse{Error: err.Error()})
 			return
-		case "source account not found", "destination account not found":
+		case errors.Is(err, model.ErrSourceAccountNotFound), errors.Is(err, model.ErrDestinationAccountNotFound):
 			ctx.StatusCode(iris.StatusNotFound)
 			ctx.JSON(ErrorResponse{Error: err.Error()})
 			return
-		case "insufficient funds":
+		case errors.Is(err, model.ErrInsufficientFunds):
 			ctx.StatusCode(iris.StatusBadRequest)
 			ctx.JSON(ErrorResponse{Error: err.Error()})
 			return

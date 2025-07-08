@@ -24,14 +24,14 @@ func NewAccountService(repo *db.AccountRepository) *AccountService {
 // Validation helpers
 func validateAccountID(id int64) error {
 	if id <= 0 {
-		return errors.New("account id must be a positive number")
+		return model.ErrAccountIDMustBePositive
 	}
 	return nil
 }
 
 func validateDecimalPrecision(val decimal.Decimal) error {
 	if val.Exponent() < -maxDecimalPrecision {
-		return fmt.Errorf("precision must be %d or fewer decimal places", maxDecimalPrecision)
+		return model.ErrPrecisionTooHigh
 	}
 	return nil
 }
@@ -43,7 +43,7 @@ func (s *AccountService) CreateAccount(account model.Account) error {
 	}
 	if account.Balance.IsNegative() {
 		log.Printf("CreateAccount negative balance: %v", account.Balance)
-		return errors.New("balance must be non-negative")
+		return model.ErrBalanceMustBeNonNegative
 	}
 	if err := validateDecimalPrecision(account.Balance); err != nil {
 		log.Printf("CreateAccount balance precision error: %v", err)
@@ -55,7 +55,7 @@ func (s *AccountService) CreateAccount(account model.Account) error {
 		// Handle unique constraint violation (Postgres error code 23505)
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
 			log.Printf("CreateAccount duplicate account id: %d", account.AccountID)
-			return errors.New("account id already exists")
+			return model.ErrAccountIDAlreadyExists
 		}
 		log.Printf("CreateAccount db error: %v", err)
 		return err
@@ -96,11 +96,11 @@ func (s *AccountService) Transfer(sourceID, destID int64, amount decimal.Decimal
 	}
 	if sourceID == destID {
 		log.Printf("Transfer attempted with same source and destination: %d", sourceID)
-		return errors.New("source and destination accounts must be different")
+		return model.ErrSourceAndDestinationMustDiffer
 	}
 	if amount.IsNegative() || amount.IsZero() {
 		log.Printf("Transfer with non-positive amount: %v", amount)
-		return errors.New("amount must be positive")
+		return model.ErrAmountMustBePositive
 	}
 	if err = validateDecimalPrecision(amount); err != nil {
 		log.Printf("Transfer amount precision error: %v", err)
@@ -128,14 +128,14 @@ func (s *AccountService) Transfer(sourceID, destID int64, amount decimal.Decimal
 	if err != nil {
 		if errors.Is(err, model.ErrAccountNotFound) {
 			log.Printf("Transfer source account not found: %d", sourceID)
-			return errors.New("source account not found")
+			return model.ErrSourceAccountNotFound
 		}
 		log.Printf("Transfer error getting source balance: %v", err)
 		return err
 	}
 	if balance.LessThan(amount) {
 		log.Printf("Transfer insufficient funds: %d, balance: %v, amount: %v", sourceID, balance, amount)
-		return errors.New("insufficient funds")
+		return model.ErrInsufficientFunds
 	}
 
 	// Lock destination account row to ensure it exists
@@ -143,7 +143,7 @@ func (s *AccountService) Transfer(sourceID, destID int64, amount decimal.Decimal
 	if err != nil {
 		if errors.Is(err, model.ErrAccountNotFound) {
 			log.Printf("Transfer destination account not found: %d", destID)
-			return errors.New("destination account not found")
+			return model.ErrDestinationAccountNotFound
 		}
 		log.Printf("Transfer error getting destination balance: %v", err)
 		return err
