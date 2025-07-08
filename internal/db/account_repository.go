@@ -29,7 +29,7 @@ func (repo *AccountRepository) BeginTx() (*Transaction, error) {
 }
 
 func (repo *AccountRepository) CreateAccount(accountID int64, initialBalance decimal.Decimal) error {
-	_, err := repo.conn.Exec(`INSERT INTO accounts (account_id, balance) VALUES ($1, $2)`, accountID, initialBalance.String)
+	_, err := repo.conn.Exec(`INSERT INTO accounts (account_id, balance) VALUES ($1, $2)`, accountID, initialBalance.String())
 	if err != nil {
 		log.Printf("CreateAccount DB error: %v", err)
 	}
