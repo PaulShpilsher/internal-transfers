@@ -104,7 +104,14 @@ curl -X POST http://localhost:3000/accounts \
 
 - **GET** `/accounts/{id}`
 - **Responses:**
-  - `200 OK`: Account found.
+  - `200 OK`: Account found. 
+    - **Response Body:**
+      ```json
+      {
+          "account_id": 2,
+          "balance": "100.12"
+      }
+      ```
   - `400 Bad Request`: Invalid account ID (not a number).
   - `404 Not Found`: Account not found.
   - `500 Internal Server Error`: Any other error (e.g., database error, response write error).
