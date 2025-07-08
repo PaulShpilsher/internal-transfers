@@ -26,13 +26,14 @@ cd internal-transfers
 Create a `.env.docker` file in the project root with the following content (edit as needed):
 
 ```env
+APP_ENV=docker
+SERVER_PORT=3000
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
-POSTGRES_USER=youruser
-POSTGRES_PASSWORD=yourpassword
-POSTGRES_DB=yourdb
-SERVER_PORT=3000
-APP_ENV=development
+POSTGRES_USER=user
+POSTGRES_PASSWORD=password
+POSTGRES_DB=accounts_data
+
 ```
 
 ### Build and Run with Docker Compose
