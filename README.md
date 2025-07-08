@@ -189,10 +189,27 @@ All configuration is via environment variables (see `.env.docker`):
   ```sql
   CREATE TABLE IF NOT EXISTS accounts (
       account_id BIGINT PRIMARY KEY,
-      balance NUMERIC(20, 8) NOT NULL CHECK (balance >= 0)
+      balance NUMERIC(20, 8) NOT NULL CHECK (balance >= 0),
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
   );
+  -- Trigger to automatically update updated_at on row update
+  CREATE OR REPLACE FUNCTION update_updated_at_column()
+  RETURNS TRIGGER AS $$
+  BEGIN
+      NEW.updated_at = NOW();
+      RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql;
+
+  DROP TRIGGER IF EXISTS set_updated_at ON accounts;
+  CREATE TRIGGER set_updated_at
+  BEFORE UPDATE ON accounts
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();
   ```
 - **Initialization**: The schema is automatically loaded into the database on first run via Docker Compose volume mount.
+- **Note**: The `updated_at` column is automatically updated via a database trigger whenever a row is updated.
 
 ---
 
@@ -229,5 +246,4 @@ All configuration is via environment variables (see `.env.docker`):
 - Support for running migrations (e.g., with `golang-migrate`).
 - Add CI/CD pipeline for automated testing and deployment.
 - Enhance test coverage, including integration tests.
-
---- 
+- Refactor database transaction handling and consider moving the funds transfer logic from the service layer to the repository layer for better transactional consistency. However, note that this would move business logic out of the service layer, which is generally not desirable, but possible if stricter transactional guarantees are needed. 

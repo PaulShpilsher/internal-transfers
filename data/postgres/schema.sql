@@ -1,20 +1,21 @@
 CREATE TABLE IF NOT EXISTS accounts (
-    account_id BIGSERIAL PRIMARY KEY,
+    account_id BIGINT PRIMARY KEY,
     balance NUMERIC(20, 8) NOT NULL CHECK (balance >= 0),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW() NOT NULL
+    created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Example trigger for updated_at
+-- Trigger to automatically update updated_at on row update
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-   NEW.updated_at = NOW();
-   RETURN NEW;
+    NEW.updated_at = NOW();
+    RETURN NEW;
 END;
-$$ language 'plpgsql';
+$$ LANGUAGE plpgsql;
 
-CREATE TRIGGER update_accounts_updated_at
+DROP TRIGGER IF EXISTS set_updated_at ON accounts;
+CREATE TRIGGER set_updated_at
 BEFORE UPDATE ON accounts
 FOR EACH ROW
-EXECUTE PROCEDURE update_updated_at_column();
+EXECUTE FUNCTION update_updated_at_column();
