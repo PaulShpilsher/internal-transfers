@@ -51,9 +51,24 @@ func (h *AccountHandler) CreateAccount(ctx iris.Context) {
 		Balance:   balance,
 	}
 	if err := h.Service.CreateAccount(account); err != nil {
-		ctx.StatusCode(iris.StatusInternalServerError)
-		ctx.JSON(ErrorResponse{Error: "failed to create account: " + err.Error()})
-		return
+		switch err.Error() {
+		case "account id must be a positive number", "balance must be non-negative":
+			ctx.StatusCode(iris.StatusBadRequest)
+			ctx.JSON(ErrorResponse{Error: err.Error()})
+			return
+		case "precision must be 8 or fewer decimal places":
+			ctx.StatusCode(iris.StatusBadRequest)
+			ctx.JSON(ErrorResponse{Error: err.Error()})
+			return
+		case "account id already exists":
+			ctx.StatusCode(iris.StatusConflict)
+			ctx.JSON(ErrorResponse{Error: err.Error()})
+			return
+		default:
+			ctx.StatusCode(iris.StatusInternalServerError)
+			ctx.JSON(ErrorResponse{Error: "failed to create account: " + err.Error()})
+			return
+		}
 	}
 	ctx.StatusCode(iris.StatusCreated)
 }
@@ -69,12 +84,13 @@ func (h *AccountHandler) GetAccount(ctx iris.Context) {
 	}
 
 	account, err := h.Service.GetAccount(id)
-	if errors.Is(err, model.ErrAccountNotFound) {
-		ctx.StatusCode(iris.StatusNotFound)
-		ctx.JSON(ErrorResponse{Error: "account not found"})
-		return
-	}
 	if err != nil {
+		if errors.Is(err, model.ErrAccountNotFound) {
+			ctx.StatusCode(iris.StatusNotFound)
+			ctx.JSON(ErrorResponse{Error: "account not found"})
+			return
+		}
+
 		log.Printf("get account error: %v", err)
 		ctx.StatusCode(iris.StatusInternalServerError)
 		ctx.JSON(ErrorResponse{Error: "internal server error"})
@@ -117,14 +133,27 @@ func (h *AccountHandler) SubmitTransaction(ctx iris.Context) {
 
 	err = h.Service.Transfer(req.SourceAccountID, req.DestinationAccountID, amount)
 	if err != nil {
-		if err.Error() == "insufficient funds" {
+		switch err.Error() {
+		case "account id must be a positive number",
+			"source and destination accounts must be different",
+			"amount must be positive",
+			"precision must be 8 or fewer decimal places":
 			ctx.StatusCode(iris.StatusBadRequest)
-			ctx.JSON(ErrorResponse{Error: "insufficient funds"})
+			ctx.JSON(ErrorResponse{Error: err.Error()})
+			return
+		case "source account not found", "destination account not found":
+			ctx.StatusCode(iris.StatusNotFound)
+			ctx.JSON(ErrorResponse{Error: err.Error()})
+			return
+		case "insufficient funds":
+			ctx.StatusCode(iris.StatusBadRequest)
+			ctx.JSON(ErrorResponse{Error: err.Error()})
+			return
+		default:
+			ctx.StatusCode(iris.StatusInternalServerError)
+			ctx.JSON(ErrorResponse{Error: "failed to submit transaction: " + err.Error()})
 			return
 		}
-		ctx.StatusCode(iris.StatusInternalServerError)
-		ctx.JSON(ErrorResponse{Error: "failed to submit transaction: " + err.Error()})
-		return
 	}
 	ctx.StatusCode(iris.StatusOK)
 }
